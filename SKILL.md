@@ -210,3 +210,26 @@ def parse_article_html(html_text: str) -> list[ArticleItem]:
 - [ ] 并发请求是否由 `asyncio.Semaphore` 限制数量，防止目标反制或本地资源耗尽？
 - [ ] 重试机制是否使用带抖动的指数退避（Jitter Backoff），杜绝死循环？
 - [ ] 若使用 Playwright/Headless，是否配置了图片/媒体拦截和自动化标记剔除？
+
+---
+
+# 7. Bug 分析、排查与反爬对抗诊断武器库 (Troubleshooting & Anti-Scraping Diagnostics)
+
+在爬虫任务出现大面积失败、数据解析异常或被目标拦截时，遵循以下排障指引：
+
+### 7.1 阻断类型精准定级与诊断矩阵
+| 响应状态 / 现象 | 故障根因分析 (RCA) | 诊断与处置武器 |
+| :--- | :--- | :--- |
+| **HTTP 403 Forbidden** | 触发 Cloudflare/Akamai/Incapsula WAF 规则，或 TLS/JA3 指纹被特征识别 | 切换至 `curl_cffi` 模拟 Chrome 真实 TLS 握手指纹；检查 User-Agent 与 Client Hints 矩阵是否矛盾。 |
+| **HTTP 429 Too Many Requests** | 触发目标针对 IP、Token 或账号的滑动窗口并发频控 | 降低信号量并发（`asyncio.Semaphore`）；注入自适应指数抖动退避重试；轮换健康代理 IP 池。 |
+| **HTTP 200 但返回空内容/验证码** | 目标页面返回滑块验证码、风控挑战页（Challenge） | 抓包分析风控下发的校验参数，或切换至 Playwright 真实浏览器环境进行验证码交互。 |
+| **网络连接频繁 Reset / 超时** | 目标防火墙丢弃请求包或代理节点失效 | 探测代理连接可用性，检查代理池健康探活心跳。 |
+
+### 7.2 Playwright 动态渲染挂死排查
+- **现象**：`page.goto` 耗尽 30s 超时报错 `TimeoutError: Timeout 30000ms exceeded`；
+- **根因**：使用了 `wait_until="networkidle"`，但页面内包含持续发送心跳或埋点的长连接，导致网络永远无法真正进入 Idle 状态；
+- **修复方案**：降级为 `wait_until="domcontentloaded"`，然后显式使用 `page.wait_for_selector("div.content", timeout=10000)` 等待目标数据节点出现。
+
+### 7.3 解析字段失效 (DOM Mutated) 排查
+- **排查红线**：对比现有 HTML 与函数 Docstring 中记录的 **Response Sample**，核对目标页面类名（Class Name）、DOM 结构是否升级换代；
+- 优先选择数据接口（XHR/JSON）提取，杜绝过度依赖混淆多变的前端 Class。
