@@ -233,3 +233,23 @@ def parse_article_html(html_text: str) -> list[ArticleItem]:
 ### 7.3 解析字段失效 (DOM Mutated) 排查
 - **排查红线**：对比现有 HTML 与函数 Docstring 中记录的 **Response Sample**，核对目标页面类名（Class Name）、DOM 结构是否升级换代；
 - 优先选择数据接口（XHR/JSON）提取，杜绝过度依赖混淆多变的前端 Class。
+
+---
+
+# 8. 大规模采集进阶：布隆判重、检查点与动态 Stealth (Large-Scale Crawling & Stealth)
+
+### 8.1 布隆过滤器去重与任务检查点 (Bloom Filter & Checkpointing)
+面对百万级采集任务，严禁使用 Python 内存 Set 判重（防 OOM）：
+1. **Redis 布隆判重**：使用 `pybloom_live` 或 RedisBloom 对 URL / 实体主键进行指纹判重（假阳性率控制在 0.01% 内）；
+2. **断点续跑检查点 (Checkpointing)**：每消费完一个批次，向 Redis 保存已消费的游标偏移量（Cursor），支持进程被 kill 后一键无损断点续爬。
+
+### 8.2 Playwright 动态 Stealth 隐身增强
+在需要极速通过指纹检测时，挂载 `playwright-stealth` 抹除底层特征：
+```python
+from playwright.async_api import async_playwright
+# 抹除 navigator.plugins, WebGL vendor, AudioContext 指纹
+await page.add_init_script("""
+    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+    window.chrome = { runtime: {} };
+""")
+```
