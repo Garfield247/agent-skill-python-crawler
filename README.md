@@ -14,13 +14,13 @@
 
 ### 方式 1: 安装至 Antigravity / Gemini 全局技能库
 ```bash
-git clone git@github.com:Garfield247/python-crawler.git ~/.gemini/config/skills/python-crawler
+git clone git@github.com:Garfield247/agent-skill-python-crawler.git ~/.gemini/config/skills/python-crawler
 ```
 
 ### 方式 2: 在任意项目中作为本地工作区技能引入
 ```bash
 mkdir -p .agents/skills
-git clone git@github.com:Garfield247/python-crawler.git .agents/skills/python-crawler
+git clone git@github.com:Garfield247/agent-skill-python-crawler.git .agents/skills/python-crawler
 ```
 
 ## 📄 开源协议 (License)
